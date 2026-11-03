@@ -57,7 +57,11 @@ def test_live_cdrom_change(make, tmp_path):
 
 def test_live_disk_attach(make):
     vm = make().start()
-    target = vm.storage.attach(size="8M", persist=False)
+    try:
+        target = vm.storage.attach(size="8M", persist=False)
+    except UnsupportedOperationError:
+        assert list(vm.disk_path.parent.glob("*-vdb.qcow2")) == []
+        pytest.skip("this libvirt test driver has no live disk attach")
     assert target in vm.storage.disks()
 
 
