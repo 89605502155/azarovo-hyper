@@ -43,13 +43,20 @@ def test_snapshots_and_delete_with_snapshots(make):
     vm.delete()
 
 
-def test_live_cdrom_change_and_live_disk_attach(make, tmp_path):
+def test_live_cdrom_change(make, tmp_path):
     iso = tmp_path / "boot.iso"
     iso.write_bytes(b"\0" * 2048)
     vm = make(iso=iso).start()
     assert vm.storage.iso == iso
-    vm.storage.eject()
+    try:
+        vm.storage.eject()
+    except UnsupportedOperationError:
+        pytest.skip("this libvirt test driver has no virDomainUpdateDeviceFlags")
     assert vm.storage.iso is None
+
+
+def test_live_disk_attach(make):
+    vm = make().start()
     target = vm.storage.attach(size="8M", persist=False)
     assert target in vm.storage.disks()
 
