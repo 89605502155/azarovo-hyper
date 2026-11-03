@@ -1,0 +1,5 @@
+    <disk type='file' device='cdrom'>
+      <driver name='qemu' type='raw'/>${source}
+      <target dev='${target}' bus='${bus}'/>
+      <readonly/>${boot}
+    </disk>

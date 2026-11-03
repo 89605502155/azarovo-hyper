@@ -1,0 +1,103 @@
+[project]
+name = "azarovo-hyper"
+dynamic = ["version"]
+description = "High-level Python API to create, configure and control KVM and Xen virtual machines through libvirt"
+readme = "README.md"
+requires-python = ">=3.11"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [{ name = "Andrey Ferubko", email = "ferubko1999@yandex.ru" }]
+keywords = [
+    "kvm",
+    "xen",
+    "libvirt",
+    "qemu",
+    "hypervisor",
+    "virtualization",
+    "virtual-machine",
+    "balloon",
+    "hotplug",
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "Intended Audience :: System Administrators",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: System :: Emulators",
+    "Topic :: System :: Systems Administration",
+    "Typing :: Typed",
+]
+dependencies = []
+
+[project.optional-dependencies]
+libvirt = ["libvirt-python>=9.0"]
+
+[project.urls]
+Homepage = "https://github.com/89605502155/azarovo-hyper"
+Repository = "https://github.com/89605502155/azarovo-hyper"
+Documentation = "https://github.com/89605502155/azarovo-hyper/tree/main/docs"
+Issues = "https://github.com/89605502155/azarovo-hyper/issues"
+Changelog = "https://github.com/89605502155/azarovo-hyper/blob/main/CHANGELOG.md"
+
+[dependency-groups]
+dev = [
+    "libvirt-python>=9.0",
+    "pytest>=8.3",
+    "pytest-cov>=6.0",
+    "pytest-timeout>=2.3",
+    "ruff>=0.17",
+]
+
+[build-system]
+requires = ["hatchling>=1.27"]
+build-backend = "hatchling.build"
+
+[tool.hatch.version]
+path = "src/azarovo_hyper/version.py"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/azarovo_hyper"]
+
+[tool.hatch.build.targets.sdist]
+include = ["src", "tests", "docs", "README.md", "README.ru.md", "CHANGELOG.md", "LICENSE"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B", "SIM", "RUF", "ARG", "PTH", "TID", "C4", "PIE", "RET", "N"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["ARG", "N802"]
+"src/azarovo_hyper/drivers/*" = ["ARG002"]
+
+[tool.ruff.format]
+quote-style = "double"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["tests"]
+addopts = "--strict-markers --strict-config -ra"
+timeout = 300
+markers = [
+    "libvirt: needs the libvirt Python binding (runs on the libvirt test:/// driver)",
+    "live: boots real KVM guests through qemu:///session (needs /dev/kvm)",
+]
+
+[tool.coverage.run]
+source = ["azarovo_hyper"]
+branch = true
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = true
+exclude_also = ["if TYPE_CHECKING:", "raise NotImplementedError"]

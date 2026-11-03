@@ -1,0 +1,68 @@
+<!--
+  KVM domain for azarovo-hyper.
+  * q35 machine with spare PCIe root ports, so disks can be hot-plugged;
+  * <vcpu current=..> below the maximum and a NUMA cell: vCPU and DIMM hot-plug;
+  * <maxMemory slots=..> is the ceiling for DIMM memory hot-plug;
+  * virtio balloon with a stats period: live memory resizing and guest stats;
+  * SPICE with uncompressed images, virtio video, USB tablet and the vdagent
+    channel: sharp picture, auto-resize, absolute mouse and clipboard;
+  * qemu-guest-agent channel: clean shutdown, IP addresses, vCPU onlining.
+-->
+<domain type='${domain_type}'>
+  <name>${name}</name>
+${title}
+  <metadata>
+    <azarovo:managed xmlns:azarovo='${namespace}' version='${version}' owns-disk='${owns_disk}'/>
+  </metadata>
+  <memory unit='MiB'>${memory}</memory>
+  <currentMemory unit='MiB'>${current_memory}</currentMemory>
+${max_memory}
+  <vcpu placement='static' current='${vcpus}'>${max_vcpus}</vcpu>
+  <os${firmware}>
+    <type arch='${arch}' machine='${machine}'>hvm</type>
+    <bootmenu enable='no'/>
+  </os>
+  <features>
+    <acpi/>
+    <apic/>
+  </features>
+  <cpu mode='${cpu_mode}' check='none'>
+    <topology sockets='1' cores='${max_vcpus}' threads='1'/>
+    <numa>
+      <cell id='0' cpus='${cpu_range}' memory='${memory}' unit='MiB'/>
+    </numa>
+  </cpu>
+  <clock offset='${clock}'>
+    <timer name='rtc' tickpolicy='catchup'/>
+    <timer name='pit' tickpolicy='delay'/>
+    <timer name='hpet' present='no'/>
+  </clock>
+  <on_poweroff>destroy</on_poweroff>
+  <on_reboot>restart</on_reboot>
+  <on_crash>destroy</on_crash>
+  <pm>
+    <suspend-to-mem enabled='no'/>
+    <suspend-to-disk enabled='no'/>
+  </pm>
+  <devices>
+${disk}
+${cdrom}
+    <controller type='usb' index='0' model='${usb_model}'/>
+    <controller type='virtio-serial' index='0'/>
+${pcie_ports}
+${interface}
+    <input type='tablet' bus='usb'/>
+${graphics}
+${agent}
+    <video>
+      <model type='${video}' heads='${video_heads}' primary='yes'/>
+    </video>
+    <rng model='virtio'>
+      <backend model='random'>/dev/urandom</backend>
+    </rng>
+    <memballoon model='virtio'${balloon_attrs}>
+      <stats period='${balloon_period}'/>
+    </memballoon>
+${extra_devices}
+  </devices>
+</domain>

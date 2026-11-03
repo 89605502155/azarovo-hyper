@@ -1,0 +1,51 @@
+<!--
+  Xen HVM domain (libxl driver) for azarovo-hyper.
+  * <memory> is the boot maximum; the library raises it live for "hot-plug",
+    and the xen balloon resizes the guest inside that bound;
+  * <vcpu current=..> below the maximum: vCPU hot-plug through libxl;
+  * VNC with a VGA card, USB tablet and PS/2 fallbacks: stable picture and
+    absolute mouse on every HVM guest;
+  * serial console for headless debugging.
+-->
+<domain type='${domain_type}'>
+  <name>${name}</name>
+${title}
+  <metadata>
+    <azarovo:managed xmlns:azarovo='${namespace}' version='${version}' owns-disk='${owns_disk}'/>
+  </metadata>
+  <memory unit='MiB'>${memory}</memory>
+  <currentMemory unit='MiB'>${current_memory}</currentMemory>
+  <vcpu placement='static' current='${vcpus}'>${max_vcpus}</vcpu>
+  <os${firmware}>
+    <type arch='${arch}' machine='${machine}'>hvm</type>
+    <boot dev='cdrom'/>
+    <boot dev='hd'/>
+  </os>
+  <features>
+    <acpi/>
+    <apic/>
+    <pae/>
+  </features>
+  <cpu mode='${cpu_mode}'/>
+  <clock offset='${clock}'/>
+  <on_poweroff>destroy</on_poweroff>
+  <on_reboot>restart</on_reboot>
+  <on_crash>destroy</on_crash>
+  <devices>
+${disk}
+${cdrom}
+${interface}
+    <input type='tablet' bus='usb'/>
+    <input type='mouse' bus='ps2'/>
+    <input type='keyboard' bus='ps2'/>
+${graphics}
+    <video>
+      <model type='${video}' vram='16384' heads='${video_heads}' primary='yes'/>
+    </video>
+    <console type='pty'>
+      <target type='serial' port='0'/>
+    </console>
+    <memballoon model='xen'/>
+${extra_devices}
+  </devices>
+</domain>

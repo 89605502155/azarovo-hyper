@@ -1,0 +1,9 @@
+    <graphics type='spice' autoport='yes'>
+      <listen type='address' address='${listen}'/>
+      <image compression='off'/>
+    </graphics>
+    <channel type='spicevmc'>
+      <target type='virtio' name='com.redhat.spice.0'/>
+    </channel>
+    <redirdev bus='usb' type='spicevmc'/>
+    <redirdev bus='usb' type='spicevmc'/>
