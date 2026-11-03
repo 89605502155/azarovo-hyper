@@ -93,3 +93,18 @@ def test_host_and_network(make, lv):
     assert vm.network.interfaces()
     assert vm.network.stats()
     assert vm.network.addresses()
+
+
+def test_real_binding_refuses_what_the_host_lacks(lv, make, keeper):
+    from azarovo_hyper import InsufficientResourcesError
+
+    host = lv.host(uri=TEST_URI)
+    vm = make(vcpus=host.cpus + 1, max_vcpus=host.cpus + 1)
+    with pytest.raises(InsufficientResourcesError, match="cpu"):
+        vm.start()
+    huge = make(memory="1T", max_memory="1T", min_memory="128M")
+    with pytest.raises(InsufficientResourcesError, match="memory"):
+        huge.start()
+    names = [d.name() for d in keeper.listAllDomains()]
+    assert vm.name not in names and huge.name not in names
+    assert not vm.disk_path.exists() and not huge.disk_path.exists()

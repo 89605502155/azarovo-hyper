@@ -10,7 +10,15 @@ import pytest
 
 from azarovo_hyper import Hyper, VirtualMachine
 from azarovo_hyper.adapters.pool import ConnectionPool
-from fakes import URI, FakeDiskTool, FakeHypervisor
+from fakes import URI, FakeDiskTool, FakeHypervisor, fake_admission
+
+
+@pytest.fixture(autouse=True)
+def private_capacity_lock(tmp_path_factory, monkeypatch):
+    """Never touch the real capacity lock of the user running the tests."""
+    path = tmp_path_factory.mktemp("capacity") / "capacity.lock"
+    monkeypatch.setenv("AZAROVO_LOCK", str(path))
+    return path
 
 
 @pytest.fixture
@@ -32,7 +40,7 @@ def pool(fake: FakeHypervisor) -> Iterator[ConnectionPool]:
 
 @pytest.fixture
 def hv(pool: ConnectionPool, disks: FakeDiskTool) -> Iterator[Hyper]:
-    hyper = Hyper(pool=pool, disk_tool=disks)
+    hyper = Hyper(pool=pool, disk_tool=disks, admission=fake_admission())
     yield hyper
     hyper.close()
     gc.collect()

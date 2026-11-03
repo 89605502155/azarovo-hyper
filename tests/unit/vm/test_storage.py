@@ -70,3 +70,10 @@ def test_hotplug_capability(running, monkeypatch):
     monkeypatch.setattr(type(running.driver), "capabilities", caps)
     with pytest.raises(UnsupportedOperationError):
         running.storage.attach()
+
+
+@pytest.mark.parametrize("size", [0, -1, "-10G"])
+def test_negative_disk_size_is_refused(running, size):
+    with pytest.raises(ConfigurationError):
+        running.storage.attach(size=size)
+    assert set(running.storage.disks()) == {"vda"}

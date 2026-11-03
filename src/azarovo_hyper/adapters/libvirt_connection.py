@@ -13,6 +13,7 @@ from azarovo_hyper.adapters.errors import is_libvirt_error, libvirt_errors
 from azarovo_hyper.adapters.libvirt_domain import LibvirtDomain
 from azarovo_hyper.adapters.loader import load_libvirt
 from azarovo_hyper.decorators import decorate_public_methods
+from azarovo_hyper.domain.resources import HostUsage
 from azarovo_hyper.domain.stats import HostInfo
 from azarovo_hyper.errors import ConnectionFailedError
 
@@ -28,7 +29,10 @@ class LibvirtConnection:
         except Exception as exc:
             if not is_libvirt_error(exc):
                 raise
-            raise ConnectionFailedError(f"cannot connect to {uri}: {exc}") from exc
+            raise ConnectionFailedError(
+                f"cannot connect to {uri}: {exc}\n"
+                "Run `uv run azarovo-hyper doctor` to see what is missing."
+            ) from exc
         if conn is None:  # pragma: no cover - old bindings returned None
             raise ConnectionFailedError(f"cannot connect to {uri}")
         self._uri = uri
@@ -80,6 +84,30 @@ class LibvirtConnection:
             free_mib=float(free_mib),
             cached_mib=float(cached),
             buffers_mib=float(buffers),
+        )
+
+    def usage(self) -> HostUsage:
+        """Host capacity plus what running guests use or may still balloon up to."""
+        libvirt = load_libvirt()
+        info = self.host_info()
+        vcpus, unbacked = 0, 0.0
+        for dom in self._conn.listAllDomains(libvirt.VIR_CONNECT_LIST_DOMAINS_ACTIVE):
+            try:
+                _state, ceiling_kib, _memory, count, _time = dom.info()
+                rss = dom.memoryStats().get("rss")
+            except Exception as exc:
+                if not is_libvirt_error(exc):
+                    raise
+                continue
+            vcpus += count
+            unbacked += max(ceiling_kib - (rss or 0), 0) / 1024
+        return HostUsage(
+            hostname=info.hostname,
+            total_mib=info.total_mib,
+            available_mib=info.available_mib,
+            cpus=info.cpus,
+            guest_vcpus=vcpus,
+            guest_unbacked_mib=unbacked,
         )
 
     def is_alive(self) -> bool:

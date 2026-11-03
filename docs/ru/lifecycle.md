@@ -61,6 +61,7 @@ vm = hyper().get("legacy-vm", hypervisor="kvm", uri="qemu:///system")
 | `OperationTimeoutError` (ещё и `TimeoutError`) | гость не пришёл в нужное состояние вовремя |
 | `ConnectionFailedError` | гипервизор недоступен |
 | `VMClosedError` | объект закрыт или удалён |
+| `InsufficientResourcesError` | у хоста не хватает RAM, CPU или места на диске; ничего не создано ([ресурсы](capacity.md)) |
 | `DiskError` | ошибка `qemu-img` |
-| `BackendUnavailableError` | не установлен `libvirt-python` |
+| `BackendUnavailableError` | не установлен libvirt (выполните `azarovo-hyper setup`) |
 | `BackendError` | любая другая ошибка libvirt |

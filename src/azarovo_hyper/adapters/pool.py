@@ -11,11 +11,13 @@ per-URI lock, so a slow ``xen:///system`` never delays ``qemu:///session``.
 from __future__ import annotations
 
 import logging
+import os
 import threading
 from dataclasses import dataclass, field
 
 from azarovo_hyper.errors import ConnectionFailedError
 from azarovo_hyper.ports.backend import Connection, Connector
+from azarovo_hyper.runtime import keep_inherited, track_fork
 
 logger = logging.getLogger(__name__)
 
@@ -35,11 +37,13 @@ class Lease:
         self._entry = entry
         self._lock = threading.Lock()
         self._released = False
+        self._pid = os.getpid()
         self.uri = uri
 
     @property
     def released(self) -> bool:
-        return self._released
+        """Released, or inherited by a forked child (the socket is the parent's)."""
+        return self._released or self._pid != os.getpid()
 
     @property
     def connection(self) -> Connection:
@@ -50,6 +54,9 @@ class Lease:
 
     def release(self) -> None:
         """Give the share back; safe to call more than once and from any thread."""
+        if self._pid != os.getpid():
+            self._released = True
+            return
         with self._lock:
             if self._released:
                 return
@@ -70,6 +77,13 @@ class ConnectionPool:
         self._connector = connector
         self._lock = threading.Lock()
         self._entries: dict[str, _Entry] = {}
+        track_fork(self)
+
+    def _after_fork(self) -> None:
+        """In a forked child: forget the parent's connections without closing them."""
+        keep_inherited(*self._entries.values())
+        self._lock = threading.Lock()
+        self._entries = {}
 
     def _connect(self, uri: str) -> Connection:
         if self._connector is not None:

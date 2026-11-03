@@ -155,6 +155,14 @@ class VirtualMachine(LifecycleMixin):
         """
         self._finalizer()
 
+    def __reduce__(self) -> tuple[object, tuple[str, str, VMSpec]]:
+        """Pickle by identity, so machines can be sent to process pools.
+
+        The copy is a new object bound to the same guest; it is never
+        ephemeral, so only the original deletes an ephemeral guest.
+        """
+        return _rebuild, (self.hypervisor, self.uri, self.spec.with_(ephemeral=False))
+
     def __enter__(self) -> Self:
         return self
 
@@ -163,3 +171,9 @@ class VirtualMachine(LifecycleMixin):
 
     def __repr__(self) -> str:
         return f"<VirtualMachine {self.name!r} {self.hypervisor} {self.uri} {self.state}>"
+
+
+def _rebuild(hypervisor: str, uri: str, spec: VMSpec) -> VirtualMachine:
+    from azarovo_hyper.hyper import Hyper
+
+    return Hyper().machine(hypervisor, uri=uri, spec=spec)

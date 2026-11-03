@@ -29,7 +29,7 @@ jobs:
       - uses: astral-sh/setup-uv@v6
         with:
           python-version: ${{ matrix.python }}
-      - run: uv sync
+      - run: uv sync --locked
       - run: uv run pytest --cov --cov-report=term
 
   build:
@@ -39,3 +39,9 @@ jobs:
       - uses: astral-sh/setup-uv@v6
       - run: uv build
       - run: uvx twine check --strict dist/*
+      - name: Install the wheel like a user (no compiler, no libvirt headers)
+        run: |
+          uv venv /tmp/user
+          uv pip install --python /tmp/user dist/*.whl
+          /tmp/user/bin/azarovo-hyper --version
+          /tmp/user/bin/python -c "import azarovo_hyper; print(azarovo_hyper.__version__)"

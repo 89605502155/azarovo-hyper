@@ -71,3 +71,13 @@ def test_stats_period(running, vm):
     running.memory.set_stats_period(5)
     with pytest.raises(ConfigurationError):
         running.memory.set_stats_period(-1)
+
+
+@pytest.mark.parametrize("size", [-512, "-512M", "-1G"])
+def test_negative_memory_is_refused(running, size):
+    for call in (running.memory.set, running.memory.plug, running.memory.grow):
+        with pytest.raises(ConfigurationError):
+            call(size)
+    with pytest.raises(ConfigurationError, match="seconds"):
+        running.memory.set_stats_period(-1)
+    assert running.memory.current_mib == 1024

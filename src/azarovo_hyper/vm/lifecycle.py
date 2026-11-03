@@ -1,17 +1,15 @@
-"""Power and lifecycle operations of a machine.
-
-Methods that change the machine return ``self`` so calls chain:
-``hyper().kvm().start().memory.set("1G")``.
-"""
+"""Power and lifecycle operations; changing methods return ``self`` for chaining."""
 
 from __future__ import annotations
 
 import logging
 from typing import TYPE_CHECKING
 
-from azarovo_hyper.decorators import chainable, guarded, requires_running
+from azarovo_hyper.decorators import chainable, guarded, requires_running, validated
+from azarovo_hyper.domain.numbers import NonNegativeFloat
+from azarovo_hyper.domain.resources import Demand
 from azarovo_hyper.domain.state import VMState
-from azarovo_hyper.errors import OperationTimeoutError, VMStateError
+from azarovo_hyper.errors import InsufficientResourcesError, OperationTimeoutError, VMStateError
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -28,6 +26,7 @@ class LifecycleMixin:
     _session: VMSession
     close: Callable[[], None]
 
+    @validated(timeout=NonNegativeFloat)
     def wait_for(self, *states: VMState, timeout: float = 60.0) -> Self:
         """Block until the machine is in one of ``states`` (default: running)."""
         wanted = states or (VMState.RUNNING,)
@@ -47,7 +46,11 @@ class LifecycleMixin:
             session.adopt(existing)
             return
         spec = session.spec
-        created = session.disk_tool.create(session.disk_path, spec.disk_size_mib, spec.disk_format)
+        disk = Demand(disk_mib=0 if session.disk_path.exists() else spec.disk_size_mib)
+        with session.reserve(disk, disk_dir=session.disk_path.parent):
+            created = session.disk_tool.create(
+                session.disk_path, spec.disk_size_mib, spec.disk_format, spec.disk_preallocation
+            )
         session.owns_disk = created
         xml = session.driver.render_domain(
             spec, disk_path=session.disk_path, owns_disk=created, uri=session.uri
@@ -66,23 +69,50 @@ class LifecycleMixin:
 
     @chainable
     @guarded
+    @validated(timeout=NonNegativeFloat)
     def start(self, *, wait: bool = True, timeout: float = 60.0) -> None:
-        """Define if needed, then power on (or resume a paused machine)."""
-        self.define()
-        domain = self._session.domain()
-        current = domain.state()
-        if current is VMState.PAUSED:
-            domain.resume()
-        elif not current.is_active:
-            self._session.cpu_sampler.reset()
-            domain.start()
-            logger.info("%s: started", self._session.name)
+        """Define if needed and power on (or resume); RAM/vCPUs are checked atomically.
+
+        Concurrent starts never overcommit the host; a refusal leaves nothing behind.
+        """
+        session = self._session
+        existing = session.find_domain()
+        if existing is not None and existing.state() is VMState.PAUSED:
+            existing.resume()
+        elif existing is None or not existing.state().is_active:
+            try:
+                self._boot(fresh=existing is None)
+            except InsufficientResourcesError:
+                if session.find_domain() is None:
+                    session.release()
+                raise
         if wait:
             self.wait_for(VMState.RUNNING, timeout=timeout)
+
+    def _boot(self, *, fresh: bool) -> None:
+        session = self._session
+        if fresh:
+            spec = session.spec
+            with session.reserve(Demand(spec.memory_mib, spec.vcpus, vm_vcpus=spec.vcpus)):
+                pass
+        self.define()
+        domain = session.domain()
+        count = domain.vcpus()
+        demand = Demand(domain.max_memory_kib() // 1024, count, vm_vcpus=count)
+        session.cpu_sampler.reset()
+        try:
+            with session.reserve(demand):
+                domain.start()
+        except InsufficientResourcesError:
+            if fresh:
+                session.teardown()
+            raise
+        logger.info("%s: started", session.name)
 
     # ── stop ────────────────────────────────────────────────────────────────
     @chainable
     @guarded
+    @validated(timeout=NonNegativeFloat)
     def shutdown(self, *, timeout: float = 120.0, force: bool = True) -> None:
         """ACPI power-off; after ``timeout`` pull the plug if ``force``."""
         session = self._session
@@ -120,6 +150,7 @@ class LifecycleMixin:
 
     @chainable
     @guarded
+    @validated(timeout=NonNegativeFloat)
     def restart(self, *, timeout: float = 120.0) -> None:
         """Clean shutdown followed by a fresh start."""
         self.shutdown(timeout=timeout)
@@ -159,8 +190,7 @@ class LifecycleMixin:
     def delete(self, *, remove_disk: bool | None = None) -> None:
         """Power off, undefine, delete disks it created and close this object.
 
-        ``remove_disk=None`` removes the main disk only if the library created
-        it; ``True``/``False`` force the choice.
+        ``remove_disk=None`` removes the main disk only if the library created it.
         """
         self._session.teardown(remove_disk=remove_disk)
         logger.info("%s: deleted", self._session.name)

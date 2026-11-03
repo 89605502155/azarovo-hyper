@@ -9,13 +9,25 @@ import logging
 
 from azarovo_hyper.adapters import ConnectionPool, QemuImg, default_pool, libvirt_available
 from azarovo_hyper.config import preset_names
-from azarovo_hyper.decorators import chainable, guarded, requires_running, retry, synchronized
+from azarovo_hyper.decorators import (
+    chainable,
+    guarded,
+    requires_running,
+    retry,
+    synchronized,
+    validated,
+)
 from azarovo_hyper.domain import (
     DiskStats,
     GuestMetrics,
     HostInfo,
+    HostUsage,
     InterfaceStats,
     MemoryStats,
+    NonNegativeFloat,
+    NonNegativeInt,
+    PositiveInt,
+    ResourcePolicy,
     VMOptions,
     VMSpec,
     VMState,
@@ -38,6 +50,7 @@ from azarovo_hyper.errors import (
     DiskError,
     DomainNotFoundError,
     HyperError,
+    InsufficientResourcesError,
     OperationTimeoutError,
     UnsupportedOperationError,
     VMClosedError,
@@ -61,14 +74,20 @@ __all__ = [
     "DomainNotFoundError",
     "GuestMetrics",
     "HostInfo",
+    "HostUsage",
     "Hyper",
     "HyperError",
     "HypervisorDriver",
+    "InsufficientResourcesError",
     "InterfaceStats",
     "KvmDriver",
     "MemoryStats",
+    "NonNegativeFloat",
+    "NonNegativeInt",
     "OperationTimeoutError",
+    "PositiveInt",
     "QemuImg",
+    "ResourcePolicy",
     "UnsupportedOperationError",
     "VMClosedError",
     "VMOptions",
@@ -91,4 +110,5 @@ __all__ = [
     "retry",
     "synchronized",
     "to_mib",
+    "validated",
 ]

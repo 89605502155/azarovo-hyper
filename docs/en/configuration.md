@@ -12,11 +12,14 @@ driver default shown in the last columns.
 | `disk` | `<images_dir>/<name>.<format>` | | |
 | `disk_size` | `"20G"` | | |
 | `disk_format` | `"qcow2"` | | |
+| `disk_preallocation` | `"falloc"` (see [capacity](capacity.md)) | | |
 | `disk_bus` | `None` | `virtio` | `xen` |
 | `images_dir` | see [installation](installation.md) | | |
 | `memory`, `current_memory`, `min_memory`, `max_memory` | `2G`, `=memory`, `256M`, `8G` | | |
 | `memory_slots`, `dimm_size` | `16`, `128M` | | |
 | `balloon_period`, `balloon_autodeflate`, `free_page_reporting` | `1`, `False`, `False` | | |
+| `memory_prealloc` | `False` | | |
+| `resources` and its flat options (`check_resources`, `memory_overcommit`, `cpu_overcommit`, `host_memory_reserve`, `host_disk_reserve`) | `ResourcePolicy()` | | |
 | `vcpus`, `max_vcpus` | `2`, `max(vcpus, 8)` | | |
 | `cpu_mode` | `"host-passthrough"` | | |
 | `arch` | `"x86_64"` | | |

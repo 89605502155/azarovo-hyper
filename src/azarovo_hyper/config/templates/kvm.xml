@@ -18,6 +18,7 @@ ${title}
   <currentMemory unit='MiB'>${current_memory}</currentMemory>
 ${max_memory}
   <vcpu placement='static' current='${vcpus}'>${max_vcpus}</vcpu>
+${memory_backing}
   <os${firmware}>
     <type arch='${arch}' machine='${machine}'>hvm</type>
     <bootmenu enable='no'/>

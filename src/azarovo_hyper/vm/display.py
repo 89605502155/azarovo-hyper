@@ -6,7 +6,8 @@ import shutil
 import subprocess
 from pathlib import Path
 
-from azarovo_hyper.decorators import guarded, requires_capability, requires_running
+from azarovo_hyper.decorators import guarded, requires_capability, requires_running, validated
+from azarovo_hyper.domain.numbers import NonNegativeInt
 from azarovo_hyper.domain.xml_view import DomainXml, Graphics
 from azarovo_hyper.errors import UnsupportedOperationError
 from azarovo_hyper.vm.session import SessionBound
@@ -35,6 +36,7 @@ class DisplayController(SessionBound):
     @guarded
     @requires_running
     @requires_capability("screenshot")
+    @validated(screen=NonNegativeInt)
     def screenshot(self, path: str | Path | None = None, *, screen: int = 0) -> bytes:
         """Grab the screen; with ``path`` also save it (extension follows the format)."""
         mime, data = self._session.domain().screenshot(screen)

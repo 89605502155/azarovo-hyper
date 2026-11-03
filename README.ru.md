@@ -27,6 +27,11 @@ kvm1.delete()  # нет ни домена, ни диска, ни соедине�
 ## Возможности
 
 * **Всё по умолчанию** — `hyper().kvm().start()` уже рабочая машина.
+* **Установка в две команды** — `uv add azarovo-hyper` (чистый Python, ctypes
+  поверх системного libvirt) и `azarovo-hyper setup` для самого гипервизора.
+* **Ресурсы хоста без гонок** — RAM, CPU и диск проверяются и резервируются
+  атомарно между потоками и процессами; `InsufficientResourcesError` ничего
+  не оставляет; место под диски выделяет ядро.
 * **Встроенный XML, проверенный схемой libvirt**, для KVM (q35, NUMA-ячейка,
   слоты `maxMemory`, запасные PCIe-порты, virtio-балун со статистикой,
   гостевой агент, SPICE + virtio-GPU + USB-планшет + vdagent) и Xen HVM
@@ -36,6 +41,8 @@ kvm1.delete()  # нет ни домена, ни диска, ни соедине�
 * **CPU**: живой хотплаг vCPU, замер загрузки отдельно для каждой машины.
 * **Диски**: замена ISO на лету, хотплаг дисков, счётчики ввода-вывода.
 * **Снапшоты, скриншоты, окна просмотра, IP-адреса, счётчики сетевых карт.**
+* **Потоки, процессы и asyncio**: работает из `ThreadPoolExecutor`,
+  `ProcessPoolExecutor` (машины сериализуются, fork безопасен) и `asyncio.to_thread`.
 * **Потокобезопасность by design**: замок на машину, одно общее соединение на
   URI; много гипервизоров и машин работают параллельно, не блокируя друг друга.
 * **Детерминированная очистка**: `stop()` отдаёт соединение, `del vm` /
@@ -46,9 +53,13 @@ kvm1.delete()  # нет ни домена, ни диска, ни соедине�
 ## Установка
 
 ```bash
-sudo apt install -y qemu-kvm qemu-utils libvirt-daemon-system pkg-config libvirt-dev python3-dev
-pip install "azarovo-hyper[libvirt]"      # или: uv add "azarovo-hyper[libvirt]"
+uv add azarovo-hyper              # без зависимостей, ничего не компилируется
+uv run azarovo-hyper setup        # один раз на машину: QEMU/KVM + libvirt, спросит sudo
+uv run azarovo-hyper doctor       # по желанию: «ready to run guests»
 ```
+
+> Проверено и рассчитано на **Linux, а именно Ubuntu** (22.04, 24.04, 26.04).
+> Поддержка других дистрибутивов и операционных систем планируется.
 
 Обычный пользователь работает с `qemu:///session` (root не нужен), root — с
 `qemu:///system`. Подробнее — [установка](docs/ru/installation.md).
@@ -112,12 +123,12 @@ with ThreadPoolExecutor(8) as pool:
 
 * [Обзор](docs/ru/index.md) · [Установка](docs/ru/installation.md) · [Быстрый старт](docs/ru/quickstart.md)
 * [Жизненный цикл](docs/ru/lifecycle.md) · [Память и CPU](docs/ru/memory-cpu.md) · [Диски, экран, сеть](docs/ru/devices.md)
-* [Конфигурация](docs/ru/configuration.md) · [Многопоточность и ресурсы](docs/ru/resources.md) · [Архитектура](docs/ru/architecture.md)
+* [Конфигурация](docs/ru/configuration.md) · [Ресурсы хоста](docs/ru/capacity.md) · [Многопоточность и ресурсы](docs/ru/resources.md) · [Архитектура](docs/ru/architecture.md)
 
 ## Разработка
 
 ```bash
-uv sync
+uv sync --locked                 # точные версии из uv.lock
 uv run ruff check . && uv run ruff format --check .
 uv run pytest                    # юнит-тесты + драйвер libvirt test:///
 AZAROVO_LIVE=1 uv run pytest     # плюс настоящие KVM-гости

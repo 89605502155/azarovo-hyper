@@ -25,7 +25,58 @@ with ThreadPoolExecutor(8) as pool:
 
 The test-suite proves this with a slow fake hypervisor (8 machines start in
 less than half of the serial time), with 16-thread lifecycle stress tests on
-the real libvirt test driver, and with parallel real KVM guests.
+the real libvirt test driver, with fork/forkserver/spawn process pools and
+asyncio, and with parallel real KVM guests.
+
+## Processes
+
+Machine objects can be passed to a `ProcessPoolExecutor` (any start method):
+they are pickled by identity, and the worker gets a fresh object bound to the
+same guest, with its own connection.
+
+```python
+import multiprocessing as mp
+from concurrent.futures import ProcessPoolExecutor
+
+
+def balloon(vm, size):
+    return vm.memory.set(size)
+
+
+machines = [h.kvm(f"node{i}").start() for i in range(4)]
+ctx = mp.get_context("spawn")
+with ProcessPoolExecutor(4, mp_context=ctx) as pool:
+    print(list(pool.map(balloon, machines, ["1G", "1G", "2G", "2G"])))
+```
+
+Forking is safe too. In a forked child every inherited connection is
+abandoned, never closed or reused (its destructor would send "close" over the
+parent's socket), locks are recreated, and only the process that created an
+`ephemeral` machine may delete it. Copies made by pickling are never
+ephemeral.
+
+## asyncio
+
+Every call is blocking but releases the GIL, so `asyncio.to_thread` gives
+real concurrency and keeps the event loop responsive:
+
+```python
+import asyncio
+
+
+async def main():
+    machines = [h.kvm(f"node{i}") for i in range(8)]
+    await asyncio.gather(*(asyncio.to_thread(vm.start) for vm in machines))
+    samples = await asyncio.gather(*(asyncio.to_thread(vm.metrics) for vm in machines))
+    await asyncio.gather(*(asyncio.to_thread(vm.delete) for vm in machines))
+
+
+asyncio.run(main())
+```
+
+`loop.run_in_executor(process_pool, ...)` works the same way. Cancelling a
+task does not stop the thread; call `vm.close()` to interrupt a waiting
+`start()`, `shutdown()` or `wait_for()`.
 
 ## What is released, and when
 

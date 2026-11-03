@@ -26,8 +26,58 @@ with ThreadPoolExecutor(8) as pool:
 
 Тесты это доказывают: медленный фейковый гипервизор (8 машин стартуют быстрее
 половины последовательного времени), стресс-тесты жизненного цикла в 16
-потоков на настоящем тестовом драйвере libvirt и параллельные настоящие
-KVM-гости.
+потоков на настоящем тестовом драйвере libvirt, пулы процессов
+fork/forkserver/spawn и asyncio, а также параллельные настоящие KVM-гости.
+
+## Процессы
+
+Объекты машин можно передавать в `ProcessPoolExecutor` (с любым способом
+запуска): они сериализуются по идентичности, и воркер получает новый объект,
+привязанный к тому же гостю, со своим соединением.
+
+```python
+import multiprocessing as mp
+from concurrent.futures import ProcessPoolExecutor
+
+
+def balloon(vm, size):
+    return vm.memory.set(size)
+
+
+machines = [h.kvm(f"node{i}").start() for i in range(4)]
+ctx = mp.get_context("spawn")
+with ProcessPoolExecutor(4, mp_context=ctx) as pool:
+    print(list(pool.map(balloon, machines, ["1G", "1G", "2G", "2G"])))
+```
+
+fork тоже безопасен. В дочернем процессе каждое унаследованное соединение
+бросается, но не закрывается и не переиспользуется (его деструктор отправил
+бы «close» по сокету родителя), замки создаются заново, а удалить
+`ephemeral`-машину может только создавший её процесс. Копии, полученные
+сериализацией, никогда не бывают ephemeral.
+
+## asyncio
+
+Все вызовы блокирующие, но отпускают GIL, поэтому `asyncio.to_thread` даёт
+настоящую параллельность и не блокирует цикл событий:
+
+```python
+import asyncio
+
+
+async def main():
+    machines = [h.kvm(f"node{i}") for i in range(8)]
+    await asyncio.gather(*(asyncio.to_thread(vm.start) for vm in machines))
+    samples = await asyncio.gather(*(asyncio.to_thread(vm.metrics) for vm in machines))
+    await asyncio.gather(*(asyncio.to_thread(vm.delete) for vm in machines))
+
+
+asyncio.run(main())
+```
+
+`loop.run_in_executor(process_pool, ...)` работает так же. Отмена задачи не
+останавливает поток; чтобы прервать ожидающий `start()`, `shutdown()` или
+`wait_for()`, вызовите `vm.close()`.
 
 ## Что и когда освобождается
 

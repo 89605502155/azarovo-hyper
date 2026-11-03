@@ -114,3 +114,12 @@ def test_delete_keeps_foreign_disk(make_vm, tmp_path):
 
 def test_repr(vm):
     assert "vm1" in repr(vm) and "undefined" in repr(vm)
+
+
+def test_negative_timeouts_are_refused(vm):
+    from azarovo_hyper import ConfigurationError
+
+    for call in (vm.start, vm.shutdown, vm.restart, vm.wait_for):
+        with pytest.raises(ConfigurationError, match="timeout"):
+            call(timeout=-1)
+    assert vm.state.name == "UNDEFINED"

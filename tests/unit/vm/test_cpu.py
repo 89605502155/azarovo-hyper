@@ -37,3 +37,10 @@ def test_usage_needs_running(vm):
 def test_xen_vcpus(hv, tmp_path):
     xen = hv.xen("xc", uri="fake:///xen", images_dir=tmp_path, max_vcpus=4).start()
     assert xen.cpu.set(4) == 4
+
+
+@pytest.mark.parametrize("call", ["set", "plug", "unplug"])
+def test_negative_vcpu_counts_are_refused(running, call):
+    with pytest.raises(ConfigurationError, match="count"):
+        getattr(running.cpu, call)(-1)
+    assert running.cpu.count == 2

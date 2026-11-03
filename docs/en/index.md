@@ -10,6 +10,9 @@ from azarovo_hyper import hyper
 kvm1 = hyper().kvm(iso="~/Downloads/ubuntu.iso", preset="ubuntu").start()
 ```
 
+Getting there takes two commands: `uv add azarovo-hyper` and, once per
+machine, `uv run azarovo-hyper setup`.
+
 ## Contents
 
 | Page | What it covers |
@@ -20,13 +23,15 @@ kvm1 = hyper().kvm(iso="~/Downloads/ubuntu.iso", preset="ubuntu").start()
 | [Memory and CPU](memory-cpu.md) | Ballooning, memory hot-plug, vCPU hot-plug, load |
 | [Disks, display, network](devices.md) | ISO, disk hot-plug, snapshots, screenshots, viewer |
 | [Configuration](configuration.md) | Every option, presets, built-in XML, custom templates |
-| [Concurrency and resources](resources.md) | Threads, connection pool, cleanup guarantees |
+| [Host capacity](capacity.md) | RAM/CPU/disk checks without races, `InsufficientResourcesError` |
+| [Concurrency and resources](resources.md) | Threads, processes, asyncio, cleanup guarantees |
 | [Architecture and extending](architecture.md) | Layers, decorators, adding a hypervisor |
 
 The Russian version lives in [`../ru`](../ru/index.md).
 
 ## Supported platforms
 
-* Linux hosts with libvirt (KVM through `qemu:///session` or `qemu:///system`,
-  Xen through `xen:///system`);
+* **Tested on and built for Linux, specifically Ubuntu** (22.04, 24.04, 26.04).
+  Other distributions and operating systems are planned for future releases.
+* KVM through `qemu:///session` or `qemu:///system`, Xen through `xen:///system`.
 * Python 3.11, 3.12, 3.13 and 3.14.

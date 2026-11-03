@@ -1,5 +1,12 @@
 # Быстрый старт
 
+## Подготовить машину (один раз)
+
+```bash
+uv add azarovo-hyper
+uv run azarovo-hyper setup     # Ubuntu; спросит пароль sudo
+```
+
 ## Поднять машину
 
 ```python

@@ -13,12 +13,24 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from azarovo_hyper.domain.numbers import NonNegativeInt, PositiveInt, check
+from azarovo_hyper.domain.resources import ResourcePolicy
 from azarovo_hyper.domain.sizes import Size, to_mib
 from azarovo_hyper.errors import ConfigurationError
 
 _NAME = re.compile(r"[A-Za-z0-9][A-Za-z0-9_.+-]{0,63}")
 FIRMWARES = ("bios", "efi")
 GRAPHICS = ("spice", "vnc", "none")
+PREALLOCATIONS = ("off", "metadata", "falloc", "full")
+NUMBERS: dict[str, type] = {
+    "vcpus": PositiveInt,
+    "max_vcpus": PositiveInt,
+    "video_heads": PositiveInt,
+    "memory_slots": NonNegativeInt,
+    "balloon_period": NonNegativeInt,
+    "pcie_ports": NonNegativeInt,
+}
+SIZES = ("memory", "current_memory", "min_memory", "max_memory", "dimm_size", "disk_size")
 
 
 def generated_name() -> str:
@@ -36,6 +48,7 @@ class VMSpec:
     disk_size: Size = "20G"
     disk_format: str = "qcow2"
     disk_bus: str | None = None
+    disk_preallocation: str = "falloc"
     images_dir: str | Path | None = None
 
     memory: Size = "2G"
@@ -47,6 +60,7 @@ class VMSpec:
     balloon_period: int = 1
     balloon_autodeflate: bool = False
     free_page_reporting: bool = False
+    memory_prealloc: bool = False
 
     vcpus: int = 2
     max_vcpus: int | None = None
@@ -70,6 +84,7 @@ class VMSpec:
     ephemeral: bool = False
     template: str | Path | None = None
     extra_devices: tuple[str, ...] = ()
+    resources: ResourcePolicy = field(default_factory=ResourcePolicy)
 
     def __post_init__(self) -> None:
         if not _NAME.fullmatch(self.name):
@@ -78,6 +93,14 @@ class VMSpec:
             )
         if "\n" in self.title:
             raise ConfigurationError("title must be a single line")
+        for field_name, kind in NUMBERS.items():
+            object.__setattr__(self, field_name, check(kind, getattr(self, field_name), field_name))
+        for field_name in SIZES:
+            value = getattr(self, field_name)
+            try:
+                _ = value is None or to_mib(value)
+            except ConfigurationError as exc:
+                raise ConfigurationError(f"{field_name}: {exc}") from None
         self._check_memory()
         self._check_cpu()
         self._check_choices()
@@ -97,18 +120,12 @@ class VMSpec:
             )
         if top < boot:
             raise ConfigurationError(f"max_memory ({top} MiB) is below memory ({boot} MiB)")
-        if self.memory_slots < 0:
-            raise ConfigurationError("memory_slots must be >= 0")
         if self.dimm_mib < 2:
             raise ConfigurationError("dimm_size must be at least 2 MiB")
-        if self.balloon_period < 0:
-            raise ConfigurationError("balloon_period must be >= 0")
         if self.disk_size_mib <= 0:
             raise ConfigurationError("disk_size must be positive")
 
     def _check_cpu(self) -> None:
-        if self.vcpus < 1:
-            raise ConfigurationError("vcpus must be >= 1")
         if self.max_vcpus is not None and self.max_vcpus < self.vcpus:
             raise ConfigurationError(f"max_vcpus ({self.max_vcpus}) is below vcpus ({self.vcpus})")
 
@@ -117,8 +134,10 @@ class VMSpec:
             raise ConfigurationError(f"firmware must be one of {FIRMWARES}")
         if self.graphics is not None and self.graphics not in GRAPHICS:
             raise ConfigurationError(f"graphics must be one of {GRAPHICS}")
-        if self.video_heads < 1 or self.pcie_ports < 0:
-            raise ConfigurationError("video_heads must be >= 1 and pcie_ports >= 0")
+        if self.disk_preallocation not in PREALLOCATIONS:
+            raise ConfigurationError(f"disk_preallocation must be one of {PREALLOCATIONS}")
+        if not isinstance(self.resources, ResourcePolicy):
+            raise ConfigurationError("resources must be a ResourcePolicy")
         if isinstance(self.extra_devices, str):
             raise ConfigurationError("extra_devices must be a tuple of XML strings")
 

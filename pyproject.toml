@@ -34,10 +34,16 @@ classifiers = [
     "Topic :: System :: Systems Administration",
     "Typing :: Typed",
 ]
+# The built-in native backend talks to the system libvirt.so.0 through ctypes,
+# so the package has no dependencies to download or compile.
 dependencies = []
 
 [project.optional-dependencies]
+# Optional: the official binding (AZAROVO_LIBVIRT_BACKEND=python); compiled from source.
 libvirt = ["libvirt-python>=9.0"]
+
+[project.scripts]
+azarovo-hyper = "azarovo_hyper.cli:main"
 
 [project.urls]
 Homepage = "https://github.com/89605502155/azarovo-hyper"

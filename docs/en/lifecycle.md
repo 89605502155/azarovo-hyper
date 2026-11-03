@@ -61,6 +61,7 @@ All exceptions derive from `HyperError`:
 | `OperationTimeoutError` (also `TimeoutError`) | the guest did not reach a state in time |
 | `ConnectionFailedError` | the hypervisor is unreachable |
 | `VMClosedError` | the object was closed or deleted |
+| `InsufficientResourcesError` | the host lacks RAM, CPU or disk space; nothing was created ([capacity](capacity.md)) |
 | `DiskError` | `qemu-img` failed |
-| `BackendUnavailableError` | `libvirt-python` is not installed |
+| `BackendUnavailableError` | libvirt is not installed (run `azarovo-hyper setup`) |
 | `BackendError` | any other libvirt error |

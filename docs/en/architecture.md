@@ -67,7 +67,7 @@ monitoring thread per guest scales without the guests blocking each other.
 ## Development
 
 ```bash
-uv sync                          # needs libvirt headers for libvirt-python
+uv sync --locked                 # exact versions from uv.lock; needs libvirt headers
 uv run ruff check . && uv run ruff format --check .
 uv run pytest                    # unit + libvirt test:/// driver tests
 AZAROVO_LIVE=1 uv run pytest     # plus real KVM guests (qemu:///session)

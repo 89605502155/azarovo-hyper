@@ -27,6 +27,11 @@ kvm1.delete()  # domain, disk and connection are gone
 ## Features
 
 * **Defaults for everything** — `hyper().kvm().start()` is a working machine.
+* **Two-command setup** — `uv add azarovo-hyper` (pure Python, ctypes over the
+  system libvirt) and `azarovo-hyper setup` for the hypervisor itself.
+* **Host capacity without races** — RAM, CPU and disk are checked and reserved
+  atomically across threads and processes; `InsufficientResourcesError`
+  leaves nothing behind; disks are preallocated by the kernel.
 * **Built-in, schema-validated XML** for KVM (q35, NUMA cell, `maxMemory`
   slots, spare PCIe ports, virtio balloon with stats, guest agent, SPICE +
   virtio GPU + USB tablet + vdagent) and Xen HVM (libxl, VNC, xen balloon).
@@ -35,6 +40,8 @@ kvm1.delete()  # domain, disk and connection are gone
 * **CPU**: live vCPU hot-plug, per-machine CPU-load sampling.
 * **Storage**: live ISO insert/eject, disk hot-plug, I/O counters.
 * **Snapshots, screenshots, viewer windows, IP addresses, NIC counters.**
+* **Threads, processes and asyncio**: works from `ThreadPoolExecutor`,
+  `ProcessPoolExecutor` (machines pickle, forking is safe) and `asyncio.to_thread`.
 * **Thread-safe by design**: a lock per machine, one shared connection per URI;
   many hypervisors and machines work in parallel without blocking each other.
 * **Deterministic cleanup**: `stop()` releases the connection, `del vm` /
@@ -45,9 +52,13 @@ kvm1.delete()  # domain, disk and connection are gone
 ## Installation
 
 ```bash
-sudo apt install -y qemu-kvm qemu-utils libvirt-daemon-system pkg-config libvirt-dev python3-dev
-pip install "azarovo-hyper[libvirt]"      # or: uv add "azarovo-hyper[libvirt]"
+uv add azarovo-hyper              # no dependencies, nothing to compile
+uv run azarovo-hyper setup        # once per machine: QEMU/KVM + libvirt, asks for sudo
+uv run azarovo-hyper doctor       # optional: "ready to run guests"
 ```
+
+> Tested on and built for **Linux, specifically Ubuntu** (22.04, 24.04, 26.04).
+> Support for other distributions and operating systems is planned.
 
 Normal users get `qemu:///session` (no root needed); root gets `qemu:///system`.
 See [installation](https://github.com/89605502155/azarovo-hyper/blob/main/docs/en/installation.md).
@@ -115,12 +126,13 @@ with ThreadPoolExecutor(8) as pool:
 | Quick start | [quickstart](https://github.com/89605502155/azarovo-hyper/blob/main/docs/en/quickstart.md) | [быстрый старт](https://github.com/89605502155/azarovo-hyper/blob/main/docs/ru/quickstart.md) |
 | Memory and CPU | [memory-cpu](https://github.com/89605502155/azarovo-hyper/blob/main/docs/en/memory-cpu.md) | [память и CPU](https://github.com/89605502155/azarovo-hyper/blob/main/docs/ru/memory-cpu.md) |
 | All options | [configuration](https://github.com/89605502155/azarovo-hyper/blob/main/docs/en/configuration.md) | [конфигурация](https://github.com/89605502155/azarovo-hyper/blob/main/docs/ru/configuration.md) |
+| Host capacity | [capacity](https://github.com/89605502155/azarovo-hyper/blob/main/docs/en/capacity.md) | [ресурсы хоста](https://github.com/89605502155/azarovo-hyper/blob/main/docs/ru/capacity.md) |
 | Threads and cleanup | [resources](https://github.com/89605502155/azarovo-hyper/blob/main/docs/en/resources.md) | [ресурсы](https://github.com/89605502155/azarovo-hyper/blob/main/docs/ru/resources.md) |
 
 ## Development
 
 ```bash
-uv sync
+uv sync --locked                 # exact versions from uv.lock
 uv run ruff check . && uv run ruff format --check .
 uv run pytest                    # unit tests + libvirt test:/// driver
 AZAROVO_LIVE=1 uv run pytest     # also boots real KVM guests

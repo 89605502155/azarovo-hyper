@@ -47,5 +47,21 @@ class DiskError(HyperError):
     """A disk image could not be created or removed."""
 
 
+class InsufficientResourcesError(HyperError):
+    """The host lacks the RAM, CPU or disk space the operation needs.
+
+    ``shortfalls`` lists each missing resource with the requested and the
+    available amount. Nothing is created or changed when this is raised.
+    """
+
+    def __init__(self, message: str, shortfalls: tuple[object, ...] = ()) -> None:
+        super().__init__(message)
+        self.shortfalls = shortfalls
+
+    @property
+    def resources(self) -> set[str]:
+        return {getattr(s, "resource", "unknown") for s in self.shortfalls}
+
+
 class BackendError(HyperError):
     """Any other error reported by the hypervisor backend."""

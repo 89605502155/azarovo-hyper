@@ -10,6 +10,9 @@ from azarovo_hyper import hyper
 kvm1 = hyper().kvm(iso="~/Загрузки/ubuntu.iso", preset="ubuntu").start()
 ```
 
+Чтобы дойти до этого, нужны две команды: `uv add azarovo-hyper` и один раз на
+машину `uv run azarovo-hyper setup`.
+
 ## Содержание
 
 | Страница | О чём |
@@ -20,13 +23,15 @@ kvm1 = hyper().kvm(iso="~/Загрузки/ubuntu.iso", preset="ubuntu").start()
 | [Память и CPU](memory-cpu.md) | Балунинг, хотплаг памяти и vCPU, загрузка |
 | [Диски, экран, сеть](devices.md) | ISO, хотплаг дисков, снапшоты, скриншоты, просмотрщик |
 | [Конфигурация](configuration.md) | Все параметры, пресеты, встроенный XML, свои шаблоны |
-| [Многопоточность и ресурсы](resources.md) | Потоки, пул соединений, гарантии освобождения |
+| [Ресурсы хоста](capacity.md) | Проверка RAM/CPU/диска без гонок, `InsufficientResourcesError` |
+| [Многопоточность и ресурсы](resources.md) | Потоки, процессы, asyncio, гарантии освобождения |
 | [Архитектура и расширение](architecture.md) | Слои, декораторы, новый гипервизор |
 
 Английская версия — в [`../en`](../en/index.md).
 
 ## Поддерживаемые платформы
 
-* Linux-хосты с libvirt (KVM через `qemu:///session` или `qemu:///system`,
-  Xen через `xen:///system`);
+* **Проверено и рассчитано на Linux, а именно Ubuntu** (22.04, 24.04, 26.04).
+  Поддержка других дистрибутивов и ОС планируется в следующих версиях.
+* KVM через `qemu:///session` или `qemu:///system`, Xen через `xen:///system`.
 * Python 3.11, 3.12, 3.13 и 3.14.

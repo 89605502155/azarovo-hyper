@@ -8,6 +8,7 @@ import xml.etree.ElementTree as ET
 from collections import Counter
 from pathlib import Path
 
+from azarovo_hyper.domain.resources import HostUsage
 from azarovo_hyper.domain.stats import HostInfo
 from azarovo_hyper.errors import ConnectionFailedError, DomainNotFoundError
 from fakes.domain import FakeDomain
@@ -16,8 +17,11 @@ from fakes.domain import FakeDomain
 class FakeHypervisor:
     """Shared state behind every fake connection, like a libvirtd daemon."""
 
-    def __init__(self, *, delay: float = 0.0) -> None:
+    def __init__(self, *, delay: float = 0.0, total_mib: float = 65536, cpus: int = 64) -> None:
         self.delay = delay
+        self.total_mib = total_mib
+        self.cpus = cpus
+        self.reject_start = False
         self.guest_obeys_acpi = True
         self.fail_connect = False
         self.opened: Counter[str] = Counter()
@@ -102,7 +106,24 @@ class FakeConnection:
 
     def host_info(self) -> HostInfo:
         self._check()
-        return HostInfo(self._uri, "fakehost", "FAKE", 8, 16384.0, 4096.0, 2048.0, 512.0)
+        used = sum(d.memory_kib // 4 for d in self._running()) / 1024
+        free = self.hv.total_mib - used
+        return HostInfo(self._uri, "fakehost", "FAKE", self.hv.cpus, self.hv.total_mib, free)
+
+    def _running(self) -> list[FakeDomain]:
+        return [d for d in self.hv.domains(self._uri).values() if d.status.is_active]
+
+    def usage(self) -> HostUsage:
+        info = self.host_info()
+        running = self._running()
+        return HostUsage(
+            hostname=info.hostname,
+            total_mib=info.total_mib,
+            available_mib=info.free_mib,
+            cpus=info.cpus,
+            guest_vcpus=sum(d.current_vcpus for d in running),
+            guest_unbacked_mib=sum(d.max_kib - d.memory_kib // 4 for d in running) / 1024,
+        )
 
     def is_alive(self) -> bool:
         return self.alive and not self.is_closed
@@ -121,7 +142,9 @@ class FakeDiskTool:
         self.removed: list[Path] = []
         self._lock = threading.Lock()
 
-    def create(self, path: Path, size_mib: int, fmt: str = "qcow2") -> bool:
+    def create(
+        self, path: Path, size_mib: int, fmt: str = "qcow2", preallocation: str = "off"
+    ) -> bool:
         if path.exists():
             return False
         path.parent.mkdir(parents=True, exist_ok=True)

@@ -34,3 +34,25 @@ def test_remove_error(tmp_path):
     folder.mkdir()
     with pytest.raises(DiskError):
         QemuImg().remove(folder)
+
+
+@needs_qemu_img
+def test_falloc_reserves_blocks_now(tmp_path):
+    path = tmp_path / "full.qcow2"
+    QemuImg().create(path, 64, preallocation="falloc")
+    assert path.stat().st_blocks * 512 >= 64 * 1024 * 1024
+    thin = tmp_path / "thin.qcow2"
+    QemuImg().create(thin, 64)
+    assert thin.stat().st_blocks * 512 < 8 * 1024 * 1024
+
+
+def test_full_disk_is_reported_as_insufficient_resources(tmp_path):
+    from azarovo_hyper import InsufficientResourcesError
+
+    script = tmp_path / "qemu-img"
+    script.write_text("#!/bin/sh\ntouch \"$7\"\necho 'No space left on device' >&2\nexit 1\n")
+    script.chmod(0o755)
+    target = tmp_path / "a.qcow2"
+    with pytest.raises(InsufficientResourcesError):
+        QemuImg(binary=str(script)).create(target, 1024, preallocation="falloc")
+    assert not target.exists()

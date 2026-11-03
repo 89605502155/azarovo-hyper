@@ -67,7 +67,7 @@ vm = hyper().qemu(memory="512M", cpu_mode="maximum").start()  # появился
 ## Разработка
 
 ```bash
-uv sync                          # для libvirt-python нужны заголовки libvirt
+uv sync --locked                 # точные версии из uv.lock; нужны заголовки libvirt
 uv run ruff check . && uv run ruff format --check .
 uv run pytest                    # юнит-тесты + тесты на драйвере libvirt test:///
 AZAROVO_LIVE=1 uv run pytest     # плюс настоящие KVM-гости (qemu:///session)

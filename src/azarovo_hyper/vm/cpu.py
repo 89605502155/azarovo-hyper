@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
-from azarovo_hyper.decorators import guarded, requires_capability, requires_running
+from azarovo_hyper.decorators import guarded, requires_capability, requires_running, validated
+from azarovo_hyper.domain.numbers import PositiveInt
+from azarovo_hyper.domain.resources import Demand
 from azarovo_hyper.errors import ConfigurationError
 from azarovo_hyper.vm.session import SessionBound
 
@@ -26,6 +28,7 @@ class CpuController(SessionBound):
 
     @guarded
     @requires_capability("vcpu_hotplug")
+    @validated(count=PositiveInt)
     def set(self, count: int, *, persist: bool = False) -> int:
         """Set the number of vCPUs.
 
@@ -36,14 +39,18 @@ class CpuController(SessionBound):
             raise ConfigurationError(f"vcpus must be within 1..{self.maximum}, got {count}")
         domain = self._session.domain()
         live = domain.state().is_active
-        domain.set_vcpus(count, live=live, config=persist or not live)
+        added = max(count - domain.vcpus(), 0) if live else 0
+        with self._session.reserve(Demand(vcpus=added, vm_vcpus=count)):
+            domain.set_vcpus(count, live=live, config=persist or not live)
         return count
 
     @guarded
+    @validated(count=PositiveInt)
     def plug(self, count: int = 1) -> int:
         return self.set(self.count + count)
 
     @guarded
+    @validated(count=PositiveInt)
     def unplug(self, count: int = 1) -> int:
         return self.set(self.count - count)
 

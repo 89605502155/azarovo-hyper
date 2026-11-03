@@ -6,14 +6,16 @@ from concurrent.futures import ThreadPoolExecutor
 
 from azarovo_hyper import Hyper, VMState
 from azarovo_hyper.adapters.pool import ConnectionPool
-from fakes import URI, FakeDiskTool, FakeHypervisor
+from fakes import URI, FakeDiskTool, FakeHypervisor, fake_admission
 
 DELAY = 0.1
 
 
 def slow_hyper():
     fake = FakeHypervisor(delay=DELAY)
-    return fake, Hyper(pool=ConnectionPool(fake.connect), disk_tool=FakeDiskTool())
+    return fake, Hyper(
+        pool=ConnectionPool(fake.connect), disk_tool=FakeDiskTool(), admission=fake_admission()
+    )
 
 
 def test_machines_start_in_parallel(tmp_path):
@@ -80,7 +82,9 @@ def test_slow_uri_does_not_block_other_uris():
 
 def test_full_lifecycle_stress(tmp_path):
     fake = FakeHypervisor(delay=0.002)
-    hyper = Hyper(pool=ConnectionPool(fake.connect), disk_tool=FakeDiskTool())
+    hyper = Hyper(
+        pool=ConnectionPool(fake.connect), disk_tool=FakeDiskTool(), admission=fake_admission()
+    )
     barrier = threading.Barrier(16)
     errors = []
 

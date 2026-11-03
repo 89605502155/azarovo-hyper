@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import dataclasses
 import threading
 import weakref
 from collections.abc import Callable
@@ -12,16 +13,21 @@ from azarovo_hyper.adapters.disk import QemuImg
 from azarovo_hyper.adapters.pool import ConnectionPool, default_pool
 from azarovo_hyper.config.presets import preset as preset_options
 from azarovo_hyper.domain.options import VMOptions
+from azarovo_hyper.domain.resources import ResourcePolicy
 from azarovo_hyper.domain.spec import VMSpec, spec_fields
 from azarovo_hyper.domain.stats import HostInfo
 from azarovo_hyper.domain.xml_view import DomainXml
 from azarovo_hyper.errors import ConfigurationError
 from azarovo_hyper.ports.backend import Connector, DiskTool
+from azarovo_hyper.resources.admission import Admission
 from azarovo_hyper.vm.machine import VirtualMachine
 from azarovo_hyper.vm.session import VMSession
 
 if TYPE_CHECKING:
     from typing import Self
+
+
+_POLICY_FIELDS = frozenset(f.name for f in dataclasses.fields(ResourcePolicy))
 
 
 class Hyper:
@@ -37,11 +43,15 @@ class Hyper:
         pool: ConnectionPool | None = None,
         connector: Connector | None = None,
         disk_tool: DiskTool | None = None,
+        resources: ResourcePolicy | None = None,
+        admission: Admission | None = None,
     ) -> None:
         if pool is not None and connector is not None:
             raise ConfigurationError("pass either pool or connector, not both")
         self._pool = pool or (ConnectionPool(connector) if connector else default_pool())
         self._disk_tool = disk_tool or QemuImg()
+        self._resources = resources or ResourcePolicy()
+        self._admission = admission or Admission()
         self._machines: weakref.WeakSet[VirtualMachine] = weakref.WeakSet()
         self._lock = threading.Lock()
 
@@ -71,14 +81,16 @@ class Hyper:
         driver = drivers.get_driver(hypervisor)
         if name is not None:
             options["name"] = name
-        if spec is None:
-            unknown = set(options) - spec_fields()
-            if unknown:
-                raise ConfigurationError(f"unknown options: {', '.join(sorted(unknown))}")
-            spec = VMSpec(**{**preset_options(preset), **options})
-        elif options or preset:
-            spec = spec.with_(**{**preset_options(preset), **options})
+        merged: dict[str, Any] = {**preset_options(preset), **options}
+        flat = {k: merged.pop(k) for k in list(merged) if k in _POLICY_FIELDS}
+        unknown = set(merged) - spec_fields()
+        if unknown:
+            raise ConfigurationError(f"unknown options: {', '.join(sorted(unknown))}")
+        policy = merged.get("resources") or (spec.resources if spec else self._resources)
+        merged["resources"] = dataclasses.replace(policy, **flat) if flat else policy
+        spec = spec.with_(**merged) if spec is not None else VMSpec(**merged)
         session = VMSession(
+            admission=self._admission,
             spec=spec,
             driver=driver,
             uri=uri or driver.default_uri(),

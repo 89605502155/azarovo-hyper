@@ -5,6 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from azarovo_hyper.decorators import guarded, requires_running
+from azarovo_hyper.domain.resources import Demand
 from azarovo_hyper.domain.sizes import Size, to_mib
 from azarovo_hyper.domain.stats import DiskStats
 from azarovo_hyper.domain.xml_view import DomainXml
@@ -71,6 +72,8 @@ class StorageController(SessionBound):
         removed again by ``delete()``.
         """
         session = self._session
+        if to_mib(size) <= 0:
+            raise ConfigurationError(f"size must be positive, got {size!r}")
         live = self._live()
         if live and not session.driver.capabilities.disk_hotplug:
             raise UnsupportedOperationError(f"{session.driver.name}: no disk hot-plug")
@@ -80,7 +83,11 @@ class StorageController(SessionBound):
         created = False
         if path is None:
             image = session.images_dir / f"{session.name}-{target}.{fmt}"
-            created = session.disk_tool.create(image, to_mib(size), fmt)
+            demand = Demand(disk_mib=0 if image.exists() else to_mib(size))
+            with session.reserve(demand, disk_dir=image.parent):
+                created = session.disk_tool.create(
+                    image, to_mib(size), fmt, session.spec.disk_preallocation
+                )
         else:
             image = Path(path).expanduser().absolute()
             fmt = "raw" if image.suffix in (".img", ".raw") else fmt

@@ -74,7 +74,11 @@ class KvmDriver(HypervisorDriver):
             balloon += " freePageReporting='on'"
         last = spec.effective_max_vcpus - 1
         ports = [_PCIE_ROOT] if self.is_pcie(spec) else []
+        backing = ""
+        if spec.memory_prealloc:
+            backing = "  <memoryBacking>\n    <allocation mode='immediate'/>\n  </memoryBacking>"
         return {
+            "memory_backing": Markup(backing),
             "max_memory": Markup(max_memory),
             "cpu_range": f"0-{last}" if last else "0",
             "pcie_ports": join(ports),

@@ -14,7 +14,7 @@ import uuid
 
 import pytest
 
-from azarovo_hyper import Hyper, QemuImg, libvirt_available
+from azarovo_hyper import Hyper, QemuImg, ResourcePolicy, libvirt_available
 from azarovo_hyper.adapters.pool import ConnectionPool
 from fakes import TEST_URI
 
@@ -29,6 +29,13 @@ if shutil.which("qemu-img") is None:
 def pytest_collection_modifyitems(items):
     for item in items:
         item.add_marker(pytest.mark.libvirt)
+
+
+@pytest.fixture(autouse=True, params=["native", "python"])
+def backend(request, monkeypatch):
+    """Every integration test runs on both libvirt backends."""
+    monkeypatch.setenv("AZAROVO_LIBVIRT_BACKEND", request.param)
+    return request.param
 
 
 @pytest.fixture(scope="session")
@@ -49,7 +56,9 @@ def real_pool(keeper):
 
 @pytest.fixture
 def lv(real_pool):
-    hyper = Hyper(pool=real_pool, disk_tool=QemuImg())
+    # test:///default models a host with 3 GiB of RAM and almost none free
+    policy = ResourcePolicy(memory_overcommit=16)
+    hyper = Hyper(pool=real_pool, disk_tool=QemuImg(), resources=policy)
     yield hyper
     hyper.close()
     gc.collect()

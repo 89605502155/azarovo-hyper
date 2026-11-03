@@ -1,5 +1,12 @@
 # Quick start
 
+## Prepare the machine (once)
+
+```bash
+uv add azarovo-hyper
+uv run azarovo-hyper setup     # Ubuntu; asks for the sudo password
+```
+
 ## Boot a machine
 
 ```python

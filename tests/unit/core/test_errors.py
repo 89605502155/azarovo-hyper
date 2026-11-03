@@ -64,12 +64,29 @@ def test_decorator_only_touches_libvirt_errors(fake_libvirt):
         boom(KeyError("x"))
 
 
-def test_translate_without_module(monkeypatch):
+def test_translate_needs_no_binding(monkeypatch):
     monkeypatch.delitem(sys.modules, "libvirt", raising=False)
-    assert type(translate(libvirtError(42))) is BackendError
+    assert type(translate(libvirtError(42))) is DomainNotFoundError
+    assert type(translate(libvirtError(999))) is BackendError
 
 
 def test_hierarchy():
     assert issubclass(OperationTimeoutError, TimeoutError)
     for error in (BackendError, DomainNotFoundError, VMStateError):
         assert issubclass(error, HyperError)
+
+
+@pytest.mark.parametrize(
+    "message",
+    [
+        "internal error: qemu unexpectedly closed: cannot set up guest memory 'pc.ram'",
+        "Unable to allocate: Cannot allocate memory",
+        "write failed: No space left on device",
+    ],
+)
+def test_exhaustion_messages_become_insufficient_resources(fake_libvirt, message):
+    from azarovo_hyper import InsufficientResourcesError
+
+    error = libvirtError(1)
+    error.args = (message,)
+    assert type(translate(error)) is InsufficientResourcesError

@@ -7,7 +7,12 @@ import xml.etree.ElementTree as ET
 from typing import TYPE_CHECKING
 
 from azarovo_hyper.domain.state import VMState
-from azarovo_hyper.errors import BackendError, DomainNotFoundError, VMStateError
+from azarovo_hyper.errors import (
+    BackendError,
+    DomainNotFoundError,
+    InsufficientResourcesError,
+    VMStateError,
+)
 from fakes.devices import FakeDevices
 
 if TYPE_CHECKING:
@@ -62,6 +67,8 @@ class FakeDomain(FakeDevices):
         self._check()
         if self.status.is_active:
             raise VMStateError("already running")
+        if self.hv.reject_start:
+            raise InsufficientResourcesError("qemu: cannot set up guest memory")
         self.status = VMState.RUNNING
 
     def shutdown(self) -> None:

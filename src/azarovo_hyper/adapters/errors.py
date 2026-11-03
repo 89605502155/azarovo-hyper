@@ -1,17 +1,21 @@
-"""Translation of ``libvirt.libvirtError`` into the library's exceptions."""
+"""Translation of ``libvirtError`` (either backend) into the library's exceptions.
+
+Error codes are part of libvirt's stable ABI, so one table serves both backends.
+"""
 
 from __future__ import annotations
 
 import functools
-import sys
 from collections.abc import Callable
 from typing import Any, TypeVar, cast
 
+from azarovo_hyper.adapters import native as codes
 from azarovo_hyper.errors import (
     BackendError,
     ConnectionFailedError,
     DomainNotFoundError,
     HyperError,
+    InsufficientResourcesError,
     OperationTimeoutError,
     UnsupportedOperationError,
     VMStateError,
@@ -39,19 +43,29 @@ _CODES: tuple[tuple[type[HyperError], tuple[str, ...]], ...] = (
 )
 
 
+#: Messages with which QEMU/libvirt report that the host ran out of something.
+_EXHAUSTED = (
+    "Cannot allocate memory",
+    "cannot set up guest memory",
+    "Out of memory",
+    "No space left on device",
+)
+
+
 def is_libvirt_error(exc: BaseException) -> bool:
     return type(exc).__name__ == "libvirtError"
 
 
 def translate(exc: BaseException) -> HyperError:
     """Pick the library exception that matches a libvirt error code."""
-    libvirt = sys.modules.get("libvirt")
     get_code = getattr(exc, "get_error_code", None)
     code = get_code() if callable(get_code) else None
     message = str(exc)
-    if libvirt is not None and code is not None:
+    if any(marker in message for marker in _EXHAUSTED):
+        return InsufficientResourcesError(message)
+    if code is not None:
         for error_type, names in _CODES:
-            if code in {getattr(libvirt, n, object()) for n in names}:
+            if code in {getattr(codes, n) for n in names}:
                 return error_type(message)
     return BackendError(message)
 

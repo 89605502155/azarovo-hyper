@@ -137,6 +137,32 @@ def retry(
     return decorate
 
 
+def validated(**kinds: type) -> Callable[[F], F]:
+    """Coerce named arguments through validating types before the call.
+
+    ``@validated(count=PositiveInt)`` turns ``set(-1)`` into a
+    :class:`~azarovo_hyper.errors.ConfigurationError` naming the argument.
+    """
+
+    def decorate(func: F) -> F:
+        signature = inspect.signature(func)
+        unknown = set(kinds) - set(signature.parameters)
+        if unknown:
+            raise TypeError(f"{func.__name__}() has no parameters {sorted(unknown)}")
+
+        @functools.wraps(func)
+        def wrapper(*args: Any, **kwargs: Any) -> Any:
+            bound = signature.bind(*args, **kwargs)
+            for name, kind in kinds.items():
+                if name in bound.arguments and bound.arguments[name] is not None:
+                    bound.arguments[name] = kind(bound.arguments[name], name)
+            return func(*bound.args, **bound.kwargs)
+
+        return cast("F", wrapper)
+
+    return decorate
+
+
 def decorate_public_methods(decorator: Callable[[Any], Any]) -> Callable[[C], C]:
     """Class decorator: apply ``decorator`` to every public method of the class."""
 

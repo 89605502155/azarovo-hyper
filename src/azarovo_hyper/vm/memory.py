@@ -7,7 +7,9 @@
 
 from __future__ import annotations
 
-from azarovo_hyper.decorators import guarded, requires_running
+from azarovo_hyper.decorators import guarded, requires_running, validated
+from azarovo_hyper.domain.numbers import NonNegativeInt
+from azarovo_hyper.domain.resources import Demand
 from azarovo_hyper.domain.sizes import Size, to_mib
 from azarovo_hyper.domain.stats import MemoryStats
 from azarovo_hyper.domain.xml_view import DomainXml
@@ -80,10 +82,9 @@ class MemoryController(SessionBound):
         return self.set(max(int(self.current_mib) - to_mib(by), 0))
 
     @guarded
+    @validated(seconds=NonNegativeInt)
     def set_stats_period(self, seconds: int = 1) -> None:
         """How often the guest balloon driver refreshes ``stats()``."""
-        if seconds < 0:
-            raise ConfigurationError("seconds must be >= 0")
         domain = self._session.domain()
         live = domain.state().is_active
         domain.set_stats_period(seconds, live=live, config=not live)
@@ -116,7 +117,8 @@ class MemoryController(SessionBound):
         slots = session.spec.memory_slots
         if session.driver.capabilities.dimm_hotplug and len(self.dimms()) >= slots:
             raise VMStateError(f"{session.name}: all {slots} slots used")
-        session.driver.plug_memory(session.domain(), amount, config=persist)
+        with session.reserve(Demand(memory_mib=amount)):
+            session.driver.plug_memory(session.domain(), amount, config=persist)
         return self.maximum_mib
 
     @guarded

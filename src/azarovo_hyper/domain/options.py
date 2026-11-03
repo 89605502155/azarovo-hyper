@@ -1,6 +1,7 @@
 """Keyword arguments accepted by ``hyper().kvm(...)`` and ``hyper().xen(...)``.
 
-The keys mirror :class:`~azarovo_hyper.domain.spec.VMSpec`; the TypedDict only
+The keys mirror :class:`~azarovo_hyper.domain.spec.VMSpec` plus the flat fields
+of :class:`~azarovo_hyper.domain.resources.ResourcePolicy`; the TypedDict only
 exists so editors can complete them. A unit test keeps both in sync.
 """
 
@@ -9,6 +10,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import TypedDict
 
+from azarovo_hyper.domain.resources import ResourcePolicy
 from azarovo_hyper.domain.sizes import Size
 
 
@@ -20,6 +22,7 @@ class VMOptions(TypedDict, total=False):
     disk_size: Size
     disk_format: str
     disk_bus: str | None
+    disk_preallocation: str
     images_dir: str | Path | None
     memory: Size
     current_memory: Size | None
@@ -30,6 +33,7 @@ class VMOptions(TypedDict, total=False):
     balloon_period: int
     balloon_autodeflate: bool
     free_page_reporting: bool
+    memory_prealloc: bool
     vcpus: int
     max_vcpus: int | None
     cpu_mode: str
@@ -50,3 +54,9 @@ class VMOptions(TypedDict, total=False):
     ephemeral: bool
     template: str | Path | None
     extra_devices: tuple[str, ...]
+    resources: ResourcePolicy
+    check_resources: bool
+    memory_overcommit: float
+    cpu_overcommit: float
+    host_memory_reserve: Size
+    host_disk_reserve: Size

@@ -112,3 +112,10 @@ def test_custom_template(tmp_path):
     template = tmp_path / "mine.xml"
     template.write_text("<domain type='kvm'><name>${name}</name></domain>")
     assert render(template=template) == "<domain type='kvm'><name>vm</name></domain>"
+
+
+def test_memory_preallocation(tmp_path):
+    xml = render(memory_prealloc=True)
+    assert_valid_domain(xml, tmp_path)
+    assert ET.fromstring(xml).find("./memoryBacking/allocation").get("mode") == "immediate"
+    assert ET.fromstring(render()).find("memoryBacking") is None
